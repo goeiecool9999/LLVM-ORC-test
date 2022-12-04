@@ -32,9 +32,7 @@ LoopBody:
   br label %Repeat
 
 Exit:
-  ;call void @exit(i32 0)
-  unreachable
+  ret void
 }
 
 declare i32 @putchar(i32)
-declare void @exit(i32)

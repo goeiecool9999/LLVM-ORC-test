@@ -38,6 +38,7 @@ int main() {
   if(!targetmachine)
     return 1;
 
+  auto layout = targetmachine.get()->createDataLayout();
 
   auto compiler = std::make_unique<SimpleCompiler>(*targetmachine.get());
   IRCompileLayer IRLayer(*ES, ObjLinkingLayer, std::move(compiler));
@@ -46,7 +47,7 @@ int main() {
 
 // Create JITDylib "A" and add code to it using the IR layer.
   auto& MainJD = ES->createJITDylib("A").get();
-  auto procGen = DynamicLibrarySearchGenerator::GetForCurrentProcess('\x00');
+  auto procGen = DynamicLibrarySearchGenerator::GetForCurrentProcess(layout.getGlobalPrefix());
   logAllUnhandledErrors(procGen.takeError(), errstream);
   if(!procGen)
     return 1;
