@@ -7,9 +7,6 @@
 #include <llvm/ExecutionEngine/Orc/IRCompileLayer.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/SourceMgr.h>
-#include <llvm/MC/MCDisassembler/MCDisassembler.h>
-#include <llvm/MC/TargetRegistry.h>
-#include <llvm/MC/MCContext.h>
 #include <unistd.h>
 
 int main() {
@@ -71,31 +68,7 @@ int main() {
 // Look up the JIT'd main, cast it to a function pointer, then call it.
   auto MainSym = ES->lookup({&MainJD}, "_start");
 
-  TargetRegistry::printRegisteredTargetsForVersion(errstream);
-  std::string targetLookupErr;
-  auto triple = targetmachine->get()->getTargetTriple();
-#define xstr(s) str(s)
-#define str(s) #s
-  auto target = TargetRegistry::lookupTarget(LLVM_HOST_TRIPLE, targetLookupErr);
-  if(!target) {
-    std::cerr << targetLookupErr;
-    return 1;
-  }
-
-
-  auto mcasminfo =  target->createMCAsmInfo(*target->createMCRegInfo(""), LLVM_HOST_TRIPLE, {});
-  auto reginfo = target->createMCRegInfo("");
-  auto& tm = **targetmachine;
-  llvm::MCContext mc_context{tm.getTargetTriple(), tm.getMCAsmInfo(), tm.getMCRegisterInfo(), tm.getMCSubtargetInfo()};
-  auto disassembler = target->createMCDisassembler(*tm.getMCSubtargetInfo(), mc_context);
-
-//  MCSubtargetInfo mc_subtarget_info;
-//  MCContext mc_context;
-//  MCDisassembler disassembler{mc_subtarget_info, };
-
-
-
   auto* Main = (void (*)()) MainSym->getAddress();
 
-//  Main();
+  Main();
 }
