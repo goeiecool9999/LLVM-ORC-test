@@ -12,11 +12,8 @@
 int main() {
   LLVM_NATIVE_TARGET();
   LLVM_NATIVE_ASMPRINTER();
-  LLVM_NATIVE_ASMPARSER();
   LLVM_NATIVE_TARGETMC();
-  LLVM_NATIVE_TARGET();
   LLVM_NATIVE_TARGETINFO();
-  LLVM_NATIVE_DISASSEMBLER();
 
   using namespace llvm::orc;
   using namespace llvm;
@@ -54,11 +51,11 @@ int main() {
   MainJD.addGenerator(std::move(procGen.get()));
 
   llvm::SMDiagnostic err;
-  auto module = llvm::parseIRFile("asdf.llvm", err, *context);
+  auto module = llvm::parseIRFile("code.ll", err, *context);
 
   if(!module)
   {
-    err.print("asdf.llvm", errstream);
+    err.print("code.ll", errstream);
     return 1;
   }
 
