@@ -1,14 +1,3 @@
-#include <iostream>
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/ExecutionEngine/Orc/Core.h>
-#include <llvm/ExecutionEngine/Orc/LLJIT.h>
-#include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
-#include <llvm/ExecutionEngine/SectionMemoryManager.h>
-#include <llvm/ExecutionEngine/Orc/IRCompileLayer.h>
-#include <llvm/IRReader/IRReader.h>
-#include <llvm/Support/SourceMgr.h>
-#include <unistd.h>
-
 int main() {
   LLVM_NATIVE_TARGET();
   LLVM_NATIVE_ASMPRINTER();
@@ -69,4 +58,62 @@ int main() {
   auto* Main = (void (*)()) MainSym->getAddress();
 
   Main();
+
+  auto context_1 = std::make_unique<llvm::LLVMContext>();
+  auto testmod = std::make_unique<llvm::Module>("irfromcode", *context_1);
+  auto test = Function::Create(FunctionType::get(llvm::Type::getVoidTy(*context_1), false), llvm::GlobalValue::CommonLinkage, "testfunc", *testmod);
+
+  auto putchar_callee = testmod->getOrInsertFunction("putchar", FunctionType::get(Type::getInt32Ty(*context_1), {Type::getInt32Ty(*context_1)}, false));
+
+  auto helloWorldConst = ConstantDataArray::getString(*context_1, "Hello world\n");
+  auto dataglobal = new GlobalVariable {*testmod, helloWorldConst->getType(), true, llvm::GlobalVariable::InternalLinkage, helloWorldConst, "data"};
+
+  auto entry = BasicBlock::Create(*context_1, "", test);
+  auto Loop = BasicBlock::Create(*context_1, "Loop", test);
+  auto LoopBody = BasicBlock::Create(*context_1, "LoopBody", test);
+  auto Exit = BasicBlock::Create(*context_1, "Exit", test);
+
+  auto builder = std::make_unique<IRBuilder<>>(entry);
+  // allocate iterator pointer
+  auto ptr_alloca = builder->CreateAlloca(builder->getInt8PtrTy(), nullptr, "ptr");
+  // load initial value into pointer
+  builder->CreateStore(dataglobal, ptr_alloca);
+  builder->CreateBr(Loop);
+
+  builder.reset(new IRBuilder<>{Loop});
+  // load current value of iterator pointer
+  auto current_ptr = builder->CreateLoad(builder->getInt8PtrTy(), ptr_alloca, "currentptr");
+  // load the current char pointer to by pointer
+  auto current_ptr_val = builder->CreateLoad(builder->getInt8Ty(), current_ptr, "currentptrval");
+  // convert the current char val to 32-bit int
+  auto char_to_int = builder->CreateBitCast(current_ptr_val, builder->getInt32Ty(), "currentptrvalint");
+
+
+  auto compare_null = builder->CreateCmp(CmpInst::Predicate::ICMP_EQ, char_to_int, ConstantInt::get(builder->getInt32Ty(), 0), "compare_res");
+  auto incremented_ptr = builder->CreateAdd(current_ptr, ConstantInt::get(builder->getInt32Ty(), 1));
+  auto store_added_ptr = builder->CreateStore(incremented_ptr, ptr_alloca);
+
+  builder->CreateCondBr(compare_null, Exit, LoopBody);
+
+  builder.reset(new IRBuilder<>{LoopBody});
+  builder->CreateCall(putchar_callee, {char_to_int});
+  builder->CreateBr(Loop);
+
+  builder.reset(new IRBuilder<>{Exit});
+  builder->CreateRetVoid();
+
+  testmod->print(errstream, nullptr);
+  ThreadSafeModule tsm_2{std::move(testmod), std::move(context_1)};
+
+  auto genmoderr = IRLayer.add(MainJD, std::move(tsm_2));
+  logAllUnhandledErrors(std::move(genmoderr), errstream);
+  if(genmoderr)
+    return 1;
+
+  auto TestSym = ES->lookup({&MainJD}, "testfunc");
+  if(!TestSym)
+    return 1;
+  auto* Test = (void(*)()) TestSym->getAddress();
+  Test();
+
 }

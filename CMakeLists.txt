@@ -6,4 +6,5 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(llvm_ORC_example main.cpp)
 
+target_precompile_headers(llvm_ORC_example PRIVATE precompiled.h)
 target_link_libraries(llvm_ORC_example PRIVATE LLVM LLVMX86Disassembler)
